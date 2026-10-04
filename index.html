@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUANT — 股票回測系統</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070a0f;
+    --bg2: #0d1117;
+    --bg3: #111820;
+    --panel: #0f1521;
+    --border: #1e2d3d;
+    --border2: #243447;
+    --accent: #00e5ff;
+    --accent2: #0097a7;
+    --green: #00e676;
+    --red: #ff1744;
+    --yellow: #ffd740;
+    --text: #e2eaf2;
+    --text2: #7a99b8;
+    --text3: #3d5269;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(7,10,15,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .logo span {
+    color: var(--text3);
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    margin-left: 12px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+  }
+
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text3);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Layout */
+  .app {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    grid-template-rows: auto;
+    gap: 0;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+    background: var(--bg2);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Main content */
+  .main {
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .panel-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  .panel-title .accent { color: var(--accent); }
+
+  .panel-body { padding: 16px; }
+
+  /* Form elements */
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+
+  .field input:focus, .field select:focus {
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 2px rgba(0,229,255,0.1);
+  }
+
+  /* Strategy tabs */
+  .strategy-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .stab {
+    padding: 8px 6px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .stab:hover { border-color: var(--border2); color: var(--text2); }
+
+  .stab.active {
+    background: rgba(0,229,255,0.08);
+    border-color: var(--accent2);
+    color: var(--accent);
+  }
+
+  /* Run button */
+  .run-btn {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .run-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.25s;
+    z-index: -1;
+  }
+
+  .run-btn:hover {
+    color: var(--bg);
+  }
+
+  .run-btn:hover::before { transform: scaleX(1); }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .run-btn:disabled::before { transform: scaleX(0) !important; }
+
+  /* Portfolio weights */
+  .weight-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 28px;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+
+  .weight-row input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 3px;
+    outline: none;
+  }
+
+  .weight-row input:focus { border-color: var(--accent2); }
+
+  .del-btn {
+    width: 28px; height: 28px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--red);
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .del-btn:hover { background: rgba(255,23,68,0.1); border-color: var(--red); }
+
+  .add-btn {
+    width: 100%;
+    padding: 7px;
+    background: transparent;
+    border: 1px dashed var(--border2);
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+
+  .add-btn:hover { border-color: var(--text2); color: var(--text2); }
+
+  .weight-total {
+    text-align: right;
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 8px;
+  }
+
+  .weight-total.ok { color: var(--green); }
+  .weight-total.err { color: var(--red); }
+
+  /* Metrics grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .metric-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px 12px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.3;
+  }
+
+  .metric-card.positive::before { background: var(--green); opacity: 0.6; }
+  .metric-card.negative::before { background: var(--red); opacity: 0.6; }
+
+  .metric-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-family: var(--sans);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .metric-value.positive { color: var(--green); }
+  .metric-value.negative { color: var(--red); }
+
+  .metric-sub {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  /* Chart */
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 320px;
+  }
+
+  canvas {
+    border-radius: 2px;
+  }
+
+  /* Trades table */
+  .trades-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .trades-table th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .trades-table td {
+    padding: 8px 12px;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(30,45,61,0.5);
+    color: var(--text2);
+  }
+
+  .trades-table tr:hover td { background: rgba(0,229,255,0.03); }
+
+  .trade-buy { color: var(--green) !important; }
+  .trade-sell { color: var(--red) !important; }
+
+  .trades-wrapper {
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .trades-wrapper::-webkit-scrollbar { width: 4px; }
+  .trades-wrapper::-webkit-scrollbar-track { background: transparent; }
+  .trades-wrapper::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Loading */
+  .loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(7,10,15,0.85);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  .loading-overlay.active { display: flex; }
+
+  .loading-box {
+    text-align: center;
+  }
+
+  .loading-spinner {
+    width: 40px; height: 40px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  /* Empty/Error states */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text3);
+    text-align: center;
+  }
+
+  .empty-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  .empty-text {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .error-msg {
+    color: var(--red);
+    font-size: 12px;
+    padding: 12px 16px;
+    background: rgba(255,23,68,0.06);
+    border: 1px solid rgba(255,23,68,0.2);
+    border-radius: 3px;
+    margin: 10px 0;
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Animate in */
+  .fade-in {
+    animation: fadeIn 0.4s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .portfolio-section { display: none; }
+  .portfolio-section.active { display: block; }
+
+  .chart-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .chart-tab {
+    padding: 4px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+
+  .chart-tab.active {
+    border-color: var(--accent2);
+    color: var(--accent);
+    background: rgba(0,229,255,0.06);
+  }
+
+  /* Source badge */
+  .source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+
+  .source-real { color: var(--green); border-color: rgba(0,230,118,0.3); background: rgba(0,230,118,0.05); }
+  .source-sim { color: var(--yellow); border-color: rgba(255,215,64,0.3); background: rgba(255,215,64,0.05); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">QUANT <span>Stock Backtest System v2.1</span></div>
+  <div class="header-status">
+    <div class="status-dot"></div>
+    <span id="serverStatus">CONNECTING</span>
+  </div>
+</header>
+
+<div class="app">
+  <!-- Sidebar: Controls -->
+  <aside class="sidebar">
+
+    <!-- Strategy selector -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="accent">01</span> 策略選擇</div>
+      </div>
+      <div class="panel-body">
+        <div class="strategy-tabs">
+          <div class="stab active" data-strategy="buy_hold">Buy &amp; Hold</div>
+          <div class="stab" data-strategy="ma_cross">MA 交叉</div>
+          <div class="stab" data-strategy="rsi">RSI</div>
+          <div class="stab" data-strategy="fixed_ratio">固定比例</div>
+          <div class="stab" data-strategy="ma_rebalance">MA 再平衡</div>
+          <div class="stab" data-strategy="threshold_rebalance">閾值再平衡</div>
+          <div class="stab" data-strategy="portfolio">組合配置</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Single stock settings -->
+    <div id="singleStockPanel" class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="accent">02</span> 股票設定</div>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <label>資料來源</label>
+          <select id="dataSource">
+            <option value="auto">自動（IB → Yahoo → 模擬）</option>
+            <option value="ib">Interactive Brokers</option>
+            <option value="yfinance">Yahoo Finance</option>
+            <option value="mock">模擬資料</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>股票代碼</label>
+          <input type="text" id="symbol" value="AAPL" placeholder="AAPL / 2330.TW" />
+        </div>
+        <div class="field">
+          <label>起始日期</label>
+          <input type="date" id="startDate" value="2022-01-01" />
+        </div>
+        <div class="field">
+          <label>結束日期</label>
+          <input type="date" id="endDate" value="2024-12-31" />
+        </div>
+        <div class="field">
+          <label>投入資金 (USD/TWD)</label>
+          <input type="number" id="capital" value="100000" min="1000" step="1000" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Portfolio settings -->
+    <div id="portfolioPanel" class="panel portfolio-section">
+      <div class="panel-header">
+        <div class="panel-title"><span class="accent">02</span> 組合配置</div>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <label>資料來源</label>
+          <select id="portDataSource">
+            <option value="auto">自動（IB → Yahoo → 模擬）</option>
+            <option value="ib">Interactive Brokers</option>
+            <option value="yfinance">Yahoo Finance</option>
+            <option value="mock">模擬資料</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>起始日期</label>
+          <input type="date" id="portStartDate" value="2022-01-01" />
+        </div>
+        <div class="field">
+          <label>結束日期</label>
+          <input type="date" id="portEndDate" value="2024-12-31" />
+        </div>
+        <div class="field">
+          <label>總資金</label>
+          <input type="number" id="portCapital" value="100000" min="1000" step="1000" />
+        </div>
+        <div style="margin-bottom:8px;">
+          <div style="display:grid;grid-template-columns:1fr 80px 28px;gap:8px;margin-bottom:6px;">
+            <span style="font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3)">代碼</span>
+            <span style="font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3)">權重 %</span>
+            <span></span>
+          </div>
+          <div id="weightRows"></div>
+          <button class="add-btn" onclick="addWeightRow()">+ 新增股票</button>
+          <div class="weight-total" id="weightTotal">總計: 0%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strategy params -->
+    <div id="strategyParams" class="panel" style="display:none;">
+      <div class="panel-header">
+        <div class="panel-title"><span class="accent">03</span> 策略參數</div>
+      </div>
+      <div class="panel-body" id="strategyParamsBody"></div>
+    </div>
+
+    <!-- Run button -->
+    <button class="run-btn" id="runBtn" onclick="runBacktest()">
+      ▶ 執行回測
+    </button>
+
+  </aside>
+
+  <!-- Main: Results -->
+  <main class="main" id="mainContent">
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <div class="empty-text">設定參數後，點擊執行回測</div>
+    </div>
+  </main>
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">計算中...</div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8765';
+let currentStrategy = 'buy_hold';
+let currentResult = null;
+let priceChart = null;
+let chartMode = 'portfolio';
+
+// Check server status
+async function checkServer() {
+  try {
+    const r = await fetch(`${API_BASE}/api/health`);
+    if (r.ok) {
+      const d = await r.json();
+      let status = 'ONLINE';
+      if (d.ib_available) status += ' · IB✓';
+      else if (d.yfinance_available) status += ' · YF✓';
+      document.getElementById('serverStatus').textContent = status;
+      document.querySelector('.status-dot').style.background = '#00e676';
+    }
+  } catch {
+    document.getElementById('serverStatus').textContent = 'OFFLINE';
+    document.querySelector('.status-dot').style.background = '#ff1744';
+  }
+}
+
+checkServer();
+setInterval(checkServer, 5000);
+
+// Strategy tabs
+document.querySelectorAll('.stab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentStrategy = tab.dataset.strategy;
+    updateUI();
+  });
+});
+
+function updateUI() {
+  const isPortfolio = currentStrategy === 'portfolio';
+  
+  document.getElementById('singleStockPanel').style.display = isPortfolio ? 'none' : '';
+  
+  const portPanel = document.getElementById('portfolioPanel');
+  if (isPortfolio) {
+    portPanel.classList.add('active');
+    portPanel.style.display = '';
+  } else {
+    portPanel.classList.remove('active');
+    portPanel.style.display = 'none';
+  }
+  
+  const paramsPanel = document.getElementById('strategyParams');
+  const paramsBody = document.getElementById('strategyParamsBody');
+  
+  if (currentStrategy === 'ma_cross') {
+    paramsPanel.style.display = '';
+    paramsBody.innerHTML = `
+      <div class="field">
+        <label>短期均線 (天)</label>
+        <input type="number" id="maShort" value="20" min="5" max="100" />
+      </div>
+      <div class="field">
+        <label>長期均線 (天)</label>
+        <input type="number" id="maLong" value="60" min="10" max="200" />
+      </div>
+    `;
+  } else if (currentStrategy === 'rsi') {
+    paramsPanel.style.display = '';
+    paramsBody.innerHTML = `
+      <div class="field">
+        <label>RSI 週期 (天)</label>
+        <input type="number" id="rsiPeriod" value="14" min="5" max="30" />
+      </div>
+      <div class="field">
+        <label>超賣閾值</label>
+        <input type="number" id="rsiOversold" value="30" min="10" max="50" />
+      </div>
+      <div class="field">
+        <label>超買閾值</label>
+        <input type="number" id="rsiOverbought" value="70" min="50" max="90" />
+      </div>
+    `;
+  } else if (currentStrategy === 'fixed_ratio') {
+    paramsPanel.style.display = '';
+    paramsBody.innerHTML = `
+      <div class="field">
+        <label>股票比例 (%)</label>
+        <input type="number" id="stockRatio" value="50" min="1" max="99" step="5"
+          oninput="document.getElementById('cashRatioDisplay').textContent = 100 - this.value" />
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">
+          現金比例：<span id="cashRatioDisplay">50</span>%
+        </div>
+      </div>
+      <div class="field">
+        <label>再平衡週期 (交易日)</label>
+        <input type="number" id="rebalanceDays" value="30" min="1" max="252" />
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">
+          約每 <span id="rebalanceWeeks">6</span> 週調整一次
+        </div>
+      </div>
+    `;
+    // 動態顯示週數
+    document.getElementById('rebalanceDays').addEventListener('input', function() {
+      document.getElementById('rebalanceWeeks').textContent = (this.value / 5).toFixed(1);
+    });
+  } else if (currentStrategy === 'ma_rebalance') {
+    paramsPanel.style.display = '';
+    paramsBody.innerHTML = `
+      <div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;padding:8px;background:rgba(0,229,255,0.04);border:1px solid var(--border);border-radius:3px;">
+        金叉 → 多頭比例 &nbsp;｜&nbsp; 死叉 → 空頭比例
+      </div>
+      <div class="field">
+        <label>多頭股票比例 — 金叉時 (%)</label>
+        <input type="number" id="bullRatio" value="70" min="1" max="99" step="5"
+          oninput="syncMaRatios()" />
+      </div>
+      <div class="field">
+        <label>空頭股票比例 — 死叉時 (%)</label>
+        <input type="number" id="bearRatio" value="30" min="1" max="99" step="5"
+          oninput="syncMaRatios()" />
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">
+          初始比例：<span id="initRatioDisplay">50</span>%（多空均值）
+        </div>
+      </div>
+      <div class="field">
+        <label>短期均線 (天)</label>
+        <input type="number" id="maRebalShort" value="20" min="5" max="100" />
+      </div>
+      <div class="field">
+        <label>長期均線 (天)</label>
+        <input type="number" id="maRebalLong" value="60" min="10" max="200" />
+      </div>
+    `;
+    // 初始化 + 動態同步
+    window.syncMaRatios = function() {
+      const b = parseFloat(document.getElementById('bullRatio')?.value || 70);
+      const r = parseFloat(document.getElementById('bearRatio')?.value || 30);
+      const el = document.getElementById('initRatioDisplay');
+      if (el) el.textContent = ((b + r) / 2).toFixed(1);
+    };
+    setTimeout(syncMaRatios, 10);
+  } else if (currentStrategy === 'threshold_rebalance') {
+    paramsPanel.style.display = '';
+    paramsBody.innerHTML = `
+      <div class="field">
+        <label>目標股票比例 (%)</label>
+        <input type="number" id="targetRatio" value="50" min="1" max="99" step="5"
+          oninput="syncThreshold()" />
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">
+          現金比例：<span id="targetCashDisplay">50</span>%
+        </div>
+      </div>
+      <div class="field">
+        <label>觸發閾值 (%)</label>
+        <input type="number" id="thresholdPct" value="5" min="1" max="40" step="1"
+          oninput="syncThreshold()" />
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.6;">
+          容忍區間：<span id="thresholdLow" style="color:var(--green)">45</span>%
+          ～ <span id="thresholdHigh" style="color:var(--red)">55</span>%<br>
+          超出此範圍就補回目標比例
+        </div>
+      </div>
+    `;
+    window.syncThreshold = function() {
+      const t = parseFloat(document.getElementById('targetRatio')?.value || 50);
+      const th = parseFloat(document.getElementById('thresholdPct')?.value || 5);
+      const cash = document.getElementById('targetCashDisplay');
+      const lo = document.getElementById('thresholdLow');
+      const hi = document.getElementById('thresholdHigh');
+      if (cash) cash.textContent = (100 - t).toFixed(0);
+      if (lo) lo.textContent = (t - th).toFixed(0);
+      if (hi) hi.textContent = (t + th).toFixed(0);
+    };
+    setTimeout(syncThreshold, 10);
+  } else {
+    paramsPanel.style.display = 'none';
+  }
+}
+
+// Portfolio weight rows
+let weightRows = [];
+
+function addWeightRow(symbol = '', weight = '') {
+  const id = Date.now();
+  weightRows.push(id);
+  renderWeightRows();
+}
+
+function removeWeightRow(id) {
+  weightRows = weightRows.filter(r => r !== id);
+  renderWeightRows();
+}
+
+function renderWeightRows() {
+  const container = document.getElementById('weightRows');
+  container.innerHTML = weightRows.map(id => `
+    <div class="weight-row" id="wrow-${id}">
+      <input type="text" placeholder="AAPL" id="wsym-${id}" oninput="updateWeightTotal()" />
+      <input type="number" placeholder="25" min="1" max="100" id="wwt-${id}" oninput="updateWeightTotal()" />
+      <button class="del-btn" onclick="removeWeightRow(${id})">×</button>
+    </div>
+  `).join('');
+  updateWeightTotal();
+}
+
+function updateWeightTotal() {
+  let total = 0;
+  weightRows.forEach(id => {
+    const wt = parseFloat(document.getElementById(`wwt-${id}`)?.value || 0);
+    if (!isNaN(wt)) total += wt;
+  });
+  const el = document.getElementById('weightTotal');
+  el.textContent = `總計: ${total.toFixed(1)}%`;
+  el.className = 'weight-total ' + (Math.abs(total - 100) < 0.1 ? 'ok' : 'err');
+}
+
+function getPortfolioWeights() {
+  const result = {};
+  weightRows.forEach(id => {
+    const sym = document.getElementById(`wsym-${id}`)?.value?.trim().toUpperCase();
+    const wt = parseFloat(document.getElementById(`wwt-${id}`)?.value || 0);
+    if (sym && !isNaN(wt) && wt > 0) {
+      result[sym] = wt / 100;
+    }
+  });
+  return result;
+}
+
+// Init portfolio
+addWeightRow('AAPL', 40);
+addWeightRow('MSFT', 30);
+addWeightRow('NVDA', 30);
+// Set values after render
+setTimeout(() => {
+  const ids = weightRows;
+  if (ids[0]) { document.getElementById(`wsym-${ids[0]}`).value = 'AAPL'; document.getElementById(`wwt-${ids[0]}`).value = '40'; }
+  if (ids[1]) { document.getElementById(`wsym-${ids[1]}`).value = 'MSFT'; document.getElementById(`wwt-${ids[1]}`).value = '30'; }
+  if (ids[2]) { document.getElementById(`wsym-${ids[2]}`).value = 'NVDA'; document.getElementById(`wwt-${ids[2]}`).value = '30'; }
+  updateWeightTotal();
+}, 50);
+
+// Main backtest runner
+async function runBacktest() {
+  const btn = document.getElementById('runBtn');
+  const overlay = document.getElementById('loadingOverlay');
+  const loadingText = document.getElementById('loadingText');
+  
+  btn.disabled = true;
+  overlay.classList.add('active');
+  loadingText.textContent = '正在抓取資料...';
+  
+  try {
+    let result;
+    
+    if (currentStrategy === 'portfolio') {
+      const weights = getPortfolioWeights();
+      const total = Object.values(weights).reduce((a,b) => a+b, 0);
+      
+      if (Object.keys(weights).length < 1) {
+        throw new Error('請至少加入一個股票');
+      }
+      if (Math.abs(total - 1) > 0.01) {
+        throw new Error(`權重總和必須為 100%（目前 ${(total*100).toFixed(1)}%）`);
+      }
+      
+      loadingText.textContent = '計算組合回測...';
+      const response = await fetch(`${API_BASE}/api/portfolio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbols_weights: weights,
+          capital: parseFloat(document.getElementById('portCapital').value),
+          start_date: document.getElementById('portStartDate').value,
+          end_date: document.getElementById('portEndDate').value,
+          data_source: document.getElementById('portDataSource')?.value || 'auto'
+        })
+      });
+      result = await response.json();
+    } else {
+      loadingText.textContent = '計算策略回測...';
+      const config = {
+        symbol: document.getElementById('symbol').value.trim().toUpperCase(),
+        start_date: document.getElementById('startDate').value,
+        end_date: document.getElementById('endDate').value,
+        capital: parseFloat(document.getElementById('capital').value),
+        strategy: currentStrategy,
+        data_source: document.getElementById('dataSource')?.value || 'auto'
+      };
+      
+      if (currentStrategy === 'ma_cross') {
+        config.ma_short = parseInt(document.getElementById('maShort')?.value || 20);
+        config.ma_long = parseInt(document.getElementById('maLong')?.value || 60);
+      } else if (currentStrategy === 'rsi') {
+        config.rsi_period = parseInt(document.getElementById('rsiPeriod')?.value || 14);
+        config.rsi_oversold = parseInt(document.getElementById('rsiOversold')?.value || 30);
+        config.rsi_overbought = parseInt(document.getElementById('rsiOverbought')?.value || 70);
+      } else if (currentStrategy === 'fixed_ratio') {
+        config.stock_ratio = parseFloat(document.getElementById('stockRatio')?.value || 50) / 100;
+        config.rebalance_days = parseInt(document.getElementById('rebalanceDays')?.value || 30);
+      } else if (currentStrategy === 'ma_rebalance') {
+        config.bull_ratio = parseFloat(document.getElementById('bullRatio')?.value || 70) / 100;
+        config.bear_ratio = parseFloat(document.getElementById('bearRatio')?.value || 30) / 100;
+        config.ma_short = parseInt(document.getElementById('maRebalShort')?.value || 20);
+        config.ma_long = parseInt(document.getElementById('maRebalLong')?.value || 60);
+      } else if (currentStrategy === 'threshold_rebalance') {
+        config.target_ratio = parseFloat(document.getElementById('targetRatio')?.value || 50) / 100;
+        config.threshold = parseFloat(document.getElementById('thresholdPct')?.value || 5) / 100;
+      }
+      
+      const response = await fetch(`${API_BASE}/api/backtest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      result = await response.json();
+    }
+    
+    if (result.error) throw new Error(result.error);
+    
+    currentResult = result;
+    renderResults(result);
+    
+  } catch (err) {
+    document.getElementById('mainContent').innerHTML = `
+      <div class="panel fade-in">
+        <div class="panel-body">
+          <div class="error-msg">❌ ${err.message}</div>
+          <div style="color:var(--text3);font-size:11px;margin-top:8px;">
+            請確認伺服器正在執行中 (<code>python server.py</code>)
+          </div>
+        </div>
+      </div>
+    `;
+  } finally {
+    btn.disabled = false;
+    overlay.classList.remove('active');
+  }
+}
+
+function renderResults(result) {
+  const isPortfolio = result.strategy === 'Portfolio';
+  const isFixedRatio = result.strategy === 'Fixed Ratio';
+  const isMaRebalance = result.strategy === 'MA Rebalance';
+  const isThreshold = result.strategy === 'Threshold Rebalance';
+  const returnVal = result.total_return;
+  const isPositive = returnVal >= 0;
+  const metrics = result.metrics || {};
+  
+  const formatCurrency = v => new Intl.NumberFormat('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(v);
+  const formatPct = v => `${v >= 0 ? '+' : ''}${v}%`;
+  
+  let html = '';
+  
+  // Metrics row
+  html += `
+    <div class="panel fade-in">
+      <div class="panel-header">
+        <div class="panel-title"><span class="accent">◆</span> 回測結果 — ${result.strategy}</div>
+        ${result.stock_data ? (() => {
+          const src = result.stock_data.source;
+          const label = src === 'ib'
+            ? `● IB 資料${result.stock_data.adjusted ? '（還原）' : result.stock_data.ib_data_type ? `（${result.stock_data.ib_data_type}）` : ''}`
+            : src === 'yfinance' ? '● Yahoo 資料' : '◎ 模擬資料';
+          const cls = (src === 'ib' || src === 'yfinance') ? 'source-real' : 'source-sim';
+          return `<span class="source-badge ${cls}">${label}</span>`;
+        })() : ''}
+      </div>
+      <div class="panel-body">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">初始資金</div>
+            <div class="metric-value">$${formatCurrency(result.initial_capital)}</div>
+          </div>
+          <div class="metric-card ${isPositive ? 'positive' : 'negative'}">
+            <div class="metric-label">最終資金</div>
+            <div class="metric-value ${isPositive ? 'positive' : 'negative'}">$${formatCurrency(result.final_value)}</div>
+            <div class="metric-sub">${formatPct(returnVal)}</div>
+          </div>
+          <div class="metric-card ${isPositive ? 'positive' : 'negative'}">
+            <div class="metric-label">總報酬率</div>
+            <div class="metric-value ${isPositive ? 'positive' : 'negative'}">${formatPct(returnVal)}</div>
+            <div class="metric-sub">$${formatCurrency(result.final_value - result.initial_capital)}</div>
+          </div>
+          ${metrics.annual_return !== undefined ? `
+          <div class="metric-card">
+            <div class="metric-label">年化報酬</div>
+            <div class="metric-value ${metrics.annual_return >= 0 ? 'positive' : 'negative'}">${formatPct(metrics.annual_return)}</div>
+          </div>` : ''}
+          ${metrics.max_drawdown !== undefined ? `
+          <div class="metric-card negative">
+            <div class="metric-label">最大回撤</div>
+            <div class="metric-value negative">-${metrics.max_drawdown}%</div>
+          </div>` : ''}
+          ${metrics.sharpe_ratio !== undefined ? `
+          <div class="metric-card">
+            <div class="metric-label">夏普比率</div>
+            <div class="metric-value ${metrics.sharpe_ratio >= 1 ? 'positive' : ''}">${metrics.sharpe_ratio}</div>
+          </div>` : ''}
+          ${metrics.win_rate !== undefined ? `
+          <div class="metric-card">
+            <div class="metric-label">勝率 (日)</div>
+            <div class="metric-value">${metrics.win_rate}%</div>
+          </div>` : ''}
+          ${metrics.volatility !== undefined ? `
+          <div class="metric-card">
+            <div class="metric-label">年化波動率</div>
+            <div class="metric-value">${metrics.volatility}%</div>
+          </div>` : ''}
+          ${result.final_position ? `
+          <div class="metric-card">
+            <div class="metric-label">期末部位</div>
+            <div class="metric-value" style="color:${result.final_position.holding ? 'var(--yellow)' : 'var(--text3)'};font-size:18px;">
+              ${result.final_position.holding ? `持股 ${result.final_position.shares.toLocaleString()}` : '空手'}
+            </div>
+            <div class="metric-sub">
+              ${result.final_position.holding
+                ? `股票 $${formatCurrency(result.final_position.stock_value)} ／ 現金 $${formatCurrency(result.final_position.cash)}`
+                : `全部為現金 $${formatCurrency(result.final_position.cash)}`}
+            </div>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Fixed Ratio extra metrics
+  if (isFixedRatio && result.params) {
+    const p = result.params;
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.05s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 策略配置</div>
+        </div>
+        <div class="panel-body">
+          <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr)">
+            <div class="metric-card">
+              <div class="metric-label">股票比例</div>
+              <div class="metric-value" style="color:var(--accent)">${(p.stock_ratio*100).toFixed(0)}%</div>
+              <div class="metric-sub">現金 ${(p.cash_ratio*100).toFixed(0)}%</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">再平衡週期</div>
+              <div class="metric-value">${p.rebalance_days}</div>
+              <div class="metric-sub">交易日 ≈ ${(p.rebalance_days/5).toFixed(1)} 週</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">實際再平衡次數</div>
+              <div class="metric-value" style="color:var(--yellow)">${result.rebalance_count ?? 0}</div>
+              <div class="metric-sub">次</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (isMaRebalance && result.params) {
+    const p = result.params;
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.05s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 策略配置</div>
+        </div>
+        <div class="panel-body">
+          <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr)">
+            <div class="metric-card positive">
+              <div class="metric-label">多頭比例 (金叉)</div>
+              <div class="metric-value positive">${(p.bull_ratio*100).toFixed(0)}%</div>
+              <div class="metric-sub">MA${p.ma_short} 上穿 MA${p.ma_long}</div>
+            </div>
+            <div class="metric-card negative">
+              <div class="metric-label">空頭比例 (死叉)</div>
+              <div class="metric-value negative">${(p.bear_ratio*100).toFixed(0)}%</div>
+              <div class="metric-sub">MA${p.ma_short} 下穿 MA${p.ma_long}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">初始比例</div>
+              <div class="metric-value" style="color:var(--accent)">${(p.initial_ratio*100).toFixed(0)}%</div>
+              <div class="metric-sub">多空均值</div>
+            </div>
+            <div class="metric-card positive">
+              <div class="metric-label">金叉次數</div>
+              <div class="metric-value positive">${result.golden_cross_count ?? 0}</div>
+              <div class="metric-sub">↑ 買入訊號</div>
+            </div>
+            <div class="metric-card negative">
+              <div class="metric-label">死叉次數</div>
+              <div class="metric-value negative">${result.death_cross_count ?? 0}</div>
+              <div class="metric-sub">↓ 賣出訊號</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">觸發再平衡</div>
+              <div class="metric-value" style="color:var(--yellow)">${result.rebalance_count ?? 0}</div>
+              <div class="metric-sub">次實際調整</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (isThreshold && result.params) {
+    const p = result.params;
+    const lo = (p.target_ratio * 100 - p.threshold * 100).toFixed(0);
+    const hi = (p.target_ratio * 100 + p.threshold * 100).toFixed(0);
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.05s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 策略配置</div>
+        </div>
+        <div class="panel-body">
+          <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr)">
+            <div class="metric-card">
+              <div class="metric-label">目標股票比例</div>
+              <div class="metric-value" style="color:var(--accent)">${(p.target_ratio*100).toFixed(0)}%</div>
+              <div class="metric-sub">現金 ${(100 - p.target_ratio*100).toFixed(0)}%</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">觸發閾值</div>
+              <div class="metric-value">±${(p.threshold*100).toFixed(0)}%</div>
+              <div class="metric-sub">容忍 ${lo}% ～ ${hi}%</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">再平衡次數</div>
+              <div class="metric-value" style="color:var(--yellow)">${result.rebalance_count ?? 0}</div>
+              <div class="metric-sub">次觸發</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Portfolio breakdown
+  if (isPortfolio && result.portfolio_breakdown) {
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.05s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 個股拆解</div>
+        </div>
+        <div class="panel-body">
+          <table class="trades-table">
+            <thead><tr>
+              <th>代碼</th><th>權重</th><th>配置資金</th><th>最終價值</th><th>報酬率</th>
+            </tr></thead>
+            <tbody>
+              ${Object.entries(result.portfolio_breakdown).map(([sym, d]) => `
+                <tr>
+                  <td><strong style="color:var(--text)">${sym}</strong></td>
+                  <td>${(d.weight * 100).toFixed(1)}%</td>
+                  <td>$${formatCurrency(d.capital)}</td>
+                  <td>$${formatCurrency(d.final_value)}</td>
+                  <td class="${d.return >= 0 ? 'trade-buy' : 'trade-sell'}">${formatPct(d.return)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Chart
+  const dates = result.dates || (result.stock_data?.dates) || [];
+  const portfolioVals = result.portfolio_values || [];
+  const prices = result.stock_data?.close || [];
+  
+  if (portfolioVals.length > 0) {
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.1s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 資金曲線</div>
+          <div class="chart-tabs">
+            <button class="chart-tab active" onclick="switchChart('portfolio', this)">資金曲線</button>
+            ${prices.length > 0 ? `<button class="chart-tab" onclick="switchChart('price', this)">股價走勢</button>` : ''}
+            ${result.indicators?.rsi ? `<button class="chart-tab" onclick="switchChart('rsi', this)">RSI</button>` : ''}
+            ${(isFixedRatio || isMaRebalance || isThreshold) ? `<button class="chart-tab" onclick="switchChart('split', this)">股票/現金拆分</button>` : ''}
+            ${isMaRebalance && result.indicators?.short_ma ? `<button class="chart-tab" onclick="switchChart('ma_signal', this)">均線訊號</button>` : ''}
+            ${isThreshold ? `<button class="chart-tab" onclick="switchChart('ratio', this)">比例走勢</button>` : ''}
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="chart-container">
+            <canvas id="mainChart"></canvas>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Rebalance log (fixed ratio only)
+  if (isFixedRatio && result.rebalance_log && result.rebalance_log.length > 0) {
+    const logs = result.rebalance_log;
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.12s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 再平衡記錄 <span style="color:var(--text3);margin-left:8px;">(${logs.length} 次檢查 / ${result.rebalance_count} 次調整)</span></div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div class="trades-wrapper">
+            <table class="trades-table">
+              <thead><tr>
+                <th>日期</th><th>調整前比例</th><th>調整後比例</th><th>動作</th>
+              </tr></thead>
+              <tbody>
+                ${logs.map(r => `
+                  <tr>
+                    <td>${r.date}</td>
+                    <td>${r.before_ratio}%</td>
+                    <td class="${r.rebalanced ? 'trade-buy' : ''}">${r.after_ratio}%</td>
+                    <td style="color:${r.rebalanced ? 'var(--yellow)' : 'var(--text3)'};">${r.action}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Threshold rebalance log
+  if (isThreshold && result.rebalance_log && result.rebalance_log.length > 0) {
+    const logs = result.rebalance_log;
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.12s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 再平衡記錄 <span style="color:var(--text3);margin-left:8px;">(${logs.length} 次)</span></div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div class="trades-wrapper">
+            <table class="trades-table">
+              <thead><tr>
+                <th>日期</th><th>觸發前比例</th><th>偏離幅度</th><th>方向</th><th>調整後比例</th>
+              </tr></thead>
+              <tbody>
+                ${logs.map(r => `
+                  <tr>
+                    <td>${r.date}</td>
+                    <td>${r.before_ratio}%</td>
+                    <td class="${r.deviation > 0 ? 'trade-sell' : 'trade-buy'}">${r.deviation > 0 ? '+' : ''}${r.deviation}%</td>
+                    <td style="color:${r.deviation > 0 ? 'var(--red)' : 'var(--green)'};">${r.direction}</td>
+                    <td style="color:var(--yellow)">${r.after_ratio}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // MA Rebalance signal log
+  if (isMaRebalance && result.rebalance_log && result.rebalance_log.length > 0) {
+    const logs = result.rebalance_log;
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.12s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 均線訊號記錄 <span style="color:var(--text3);margin-left:8px;">(${logs.length} 個訊號 / ${result.rebalance_count} 次調整)</span></div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div class="trades-wrapper">
+            <table class="trades-table">
+              <thead><tr>
+                <th>日期</th><th>訊號</th><th>目標比例</th><th>調整前</th><th>調整後</th><th>動作</th>
+              </tr></thead>
+              <tbody>
+                ${logs.map(r => `
+                  <tr>
+                    <td>${r.date}</td>
+                    <td class="${r.mode === 'bull' ? 'trade-buy' : 'trade-sell'}">${r.signal}</td>
+                    <td>${r.target_ratio}%</td>
+                    <td>${r.before_ratio}%</td>
+                    <td class="${r.rebalanced ? (r.mode === 'bull' ? 'trade-buy' : 'trade-sell') : ''}">${r.after_ratio}%</td>
+                    <td style="color:${r.rebalanced ? 'var(--yellow)' : 'var(--text3)'};">${r.action}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Trades
+  const trades = result.trades || [];
+  if (trades.length > 0) {
+    const showNote = trades.some(t => t.note);
+    html += `
+      <div class="panel fade-in" style="animation-delay:0.15s">
+        <div class="panel-header">
+          <div class="panel-title"><span class="accent">◆</span> 交易記錄 <span style="color:var(--text3);margin-left:8px;">(${trades.filter(t => !t.is_settlement).length} 筆交易)</span></div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div class="trades-wrapper">
+            <table class="trades-table">
+              <thead><tr>
+                <th>日期</th><th>動作</th><th>價格</th><th>股數</th><th>金額</th>${showNote ? '<th>備註</th>' : ''}
+              </tr></thead>
+              <tbody>
+                ${trades.map(t => {
+                  const isSettle = t.is_settlement;
+                  const cls = isSettle ? ''
+                    : (t.action.includes('BUY') || t.action.includes('買入')) ? 'trade-buy'
+                    : (t.action.includes('SELL') || t.action.includes('賣出')) ? 'trade-sell' : '';
+                  return `
+                  <tr style="${isSettle ? 'background:rgba(255,215,64,0.04);' : ''}">
+                    <td>${t.date}</td>
+                    <td class="${cls}" style="${isSettle ? 'color:var(--yellow);' : ''}">${t.action}</td>
+                    <td>$${parseFloat(t.price).toFixed(2)}</td>
+                    <td>${t.shares?.toLocaleString()}</td>
+                    <td>$${parseFloat(t.value).toFixed(2)}</td>
+                    ${showNote ? `<td style="color:var(--text3);font-size:11px;">${t.note || ''}</td>` : ''}
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  document.getElementById('mainContent').innerHTML = html;
+  
+  // Draw chart after DOM update
+  setTimeout(() => {
+    if (portfolioVals.length > 0) {
+      drawChart('portfolio', dates, portfolioVals, prices, result);
+    }
+  }, 50);
+}
+
+function switchChart(mode, btn) {
+  chartMode = mode;
+  document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  
+  if (currentResult) {
+    const dates = currentResult.dates || currentResult.stock_data?.dates || [];
+    const portfolioVals = currentResult.portfolio_values || [];
+    const prices = currentResult.stock_data?.close || [];
+    drawChart(mode, dates, portfolioVals, prices, currentResult);
+  }
+}
+
+function drawChart(mode, dates, portfolioVals, prices, result) {
+  const canvas = document.getElementById('mainChart');
+  if (!canvas) return;
+  
+  if (priceChart) { priceChart.destroy(); priceChart = null; }
+  
+  const ctx = canvas.getContext('2d');
+  const w = canvas.parentElement.offsetWidth - 32;
+  const h = 300;
+  canvas.width = w;
+  canvas.height = h;
+  
+  // Determine data
+  let data, label, color, fillColor;
+  const shortDates = dates.map((d, i) => i % Math.max(1, Math.floor(dates.length / 10)) === 0 ? d.slice(0, 7) : '');
+  
+  if (mode === 'portfolio') {
+    data = portfolioVals;
+    label = '資金 ($)';
+    color = '#00e5ff';
+    fillColor = 'rgba(0,229,255,0.08)';
+  } else if (mode === 'price') {
+    data = prices;
+    label = '股價 ($)';
+    color = '#ffd740';
+    fillColor = 'rgba(255,215,64,0.06)';
+  } else if (mode === 'rsi') {
+    const rsiData = result.indicators?.rsi || [];
+    drawRSIChart(ctx, w, h, rsiData.filter(v => v !== null), result.indicators?.rsi);
+    return;
+  } else if (mode === 'split') {
+    drawSplitChart(ctx, w, h, dates, result.stock_values || [], result.cash_values || [], portfolioVals, result);
+    return;
+  } else if (mode === 'ma_signal') {
+    drawMaSignalChart(ctx, w, h, dates, prices, result.indicators?.short_ma || [], result.indicators?.long_ma || [], result.rebalance_log || []);
+    return;
+  } else if (mode === 'ratio') {
+    drawRatioChart(ctx, w, h, dates, result.ratio_history || [], result.params || {}, result.rebalance_log || []);
+    return;
+  }
+  
+  if (!data || data.length === 0) return;
+  
+  const padding = { top: 20, right: 20, bottom: 40, left: 70 };
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+  
+  const minVal = Math.min(...data.filter(v => v != null));
+  const maxVal = Math.max(...data.filter(v => v != null));
+  const range = maxVal - minVal || 1;
+  
+  const toX = i => padding.left + (i / (data.length - 1)) * chartW;
+  const toY = v => padding.top + (1 - (v - minVal) / range) * chartH;
+  
+  // Background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+  
+  // Grid lines
+  ctx.strokeStyle = 'rgba(30,45,61,0.8)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padding.top + (i / 4) * chartH;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(padding.left + chartW, y);
+    ctx.stroke();
+  }
+  
+  // Y axis labels
+  ctx.fillStyle = '#3d5269';
+  ctx.font = '10px IBM Plex Mono';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = minVal + (range * (4 - i) / 4);
+    const y = padding.top + (i / 4) * chartH;
+    ctx.fillText(v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0), padding.left - 6, y + 4);
+  }
+  
+  // X axis labels
+  ctx.textAlign = 'center';
+  const xStep = Math.max(1, Math.floor(data.length / 6));
+  for (let i = 0; i < data.length; i += xStep) {
+    if (dates[i]) {
+      ctx.fillText(dates[i].slice(0, 7), toX(i), h - 8);
+    }
+  }
+  
+  // Fill area
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(data[0]));
+  for (let i = 1; i < data.length; i++) {
+    if (data[i] != null) ctx.lineTo(toX(i), toY(data[i]));
+  }
+  ctx.lineTo(toX(data.length - 1), padding.top + chartH);
+  ctx.lineTo(toX(0), padding.top + chartH);
+  ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+  
+  // Line
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] != null) {
+      if (!started) { ctx.moveTo(toX(i), toY(data[i])); started = true; }
+      else ctx.lineTo(toX(i), toY(data[i]));
+    }
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  
+  // Trade markers (for single stock strategies)
+  const trades = result.trades || [];
+  trades.forEach(trade => {
+    const idx = dates.indexOf(trade.date);
+    if (idx === -1) return;
+    const x = toX(idx);
+    const y = toY(data[idx]);
+    
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = trade.action.startsWith('BUY') ? '#00e676' : '#ff1744';
+    ctx.fill();
+  });
+}
+
+function drawRSIChart(ctx, w, h, rsiVals, fullRsi) {
+  if (!fullRsi || fullRsi.length === 0) return;
+  
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+  
+  // Fill with background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+  
+  const data = fullRsi;
+  const toX = i => padding.left + (i / (data.length - 1)) * chartW;
+  const toY = v => padding.top + (1 - v / 100) * chartH;
+  
+  // Overbought/oversold zones
+  ctx.fillStyle = 'rgba(255,23,68,0.06)';
+  ctx.fillRect(padding.left, toY(100), chartW, toY(70) - toY(100));
+  ctx.fillStyle = 'rgba(0,230,118,0.06)';
+  ctx.fillRect(padding.left, toY(30), chartW, toY(0) - toY(30));
+  
+  // Grid
+  ctx.strokeStyle = 'rgba(30,45,61,0.8)';
+  ctx.lineWidth = 1;
+  [0, 30, 50, 70, 100].forEach(v => {
+    const y = toY(v);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(padding.left + chartW, y);
+    ctx.stroke();
+    ctx.fillStyle = '#3d5269';
+    ctx.font = '10px IBM Plex Mono';
+    ctx.textAlign = 'right';
+    ctx.fillText(v, padding.left - 6, y + 4);
+  });
+  
+  // RSI line
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] != null) {
+      if (!started) { ctx.moveTo(toX(i), toY(data[i])); started = true; }
+      else ctx.lineTo(toX(i), toY(data[i]));
+    }
+  }
+  ctx.strokeStyle = '#b39ddb';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function drawSplitChart(ctx, w, h, dates, stockVals, cashVals, totalVals, result) {
+  // Stacked area chart: stock (cyan) + cash (dim) = total
+  if (!stockVals.length || !cashVals.length) return;
+
+  const padding = { top: 20, right: 20, bottom: 40, left: 70 };
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+
+  const allVals = totalVals.length ? totalVals : stockVals.map((s, i) => s + (cashVals[i] || 0));
+  const maxVal = Math.max(...allVals);
+  const minVal = 0;
+  const range = maxVal - minVal || 1;
+
+  const toX = i => padding.left + (i / (allVals.length - 1)) * chartW;
+  const toY = v => padding.top + (1 - (v - minVal) / range) * chartH;
+
+  // Background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(30,45,61,0.8)';
+  ctx.lineWidth = 1;
+  for (let g = 0; g <= 4; g++) {
+    const y = padding.top + (g / 4) * chartH;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
+    const v = maxVal * (4 - g) / 4;
+    ctx.fillStyle = '#3d5269'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'right';
+    ctx.fillText(v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0), padding.left - 6, y + 4);
+  }
+
+  // X labels
+  ctx.textAlign = 'center';
+  const xStep = Math.max(1, Math.floor(allVals.length / 6));
+  for (let i = 0; i < allVals.length; i += xStep) {
+    if (dates[i]) ctx.fillText(dates[i].slice(0, 7), toX(i), h - 8);
+  }
+
+  // Draw cash area (bottom layer, full height based on total)
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(allVals[0]));
+  for (let i = 1; i < allVals.length; i++) ctx.lineTo(toX(i), toY(allVals[i]));
+  ctx.lineTo(toX(allVals.length - 1), padding.top + chartH);
+  ctx.lineTo(toX(0), padding.top + chartH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(61,82,105,0.35)';
+  ctx.fill();
+
+  // Draw stock area (top layer)
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(stockVals[0]));
+  for (let i = 1; i < stockVals.length; i++) ctx.lineTo(toX(i), toY(stockVals[i]));
+  ctx.lineTo(toX(stockVals.length - 1), padding.top + chartH);
+  ctx.lineTo(toX(0), padding.top + chartH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,229,255,0.2)';
+  ctx.fill();
+
+  // Stock line
+  ctx.beginPath();
+  for (let i = 0; i < stockVals.length; i++) {
+    i === 0 ? ctx.moveTo(toX(i), toY(stockVals[i])) : ctx.lineTo(toX(i), toY(stockVals[i]));
+  }
+  ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Total line (dashed)
+  ctx.beginPath();
+  ctx.setLineDash([4, 4]);
+  for (let i = 0; i < allVals.length; i++) {
+    i === 0 ? ctx.moveTo(toX(i), toY(allVals[i])) : ctx.lineTo(toX(i), toY(allVals[i]));
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Rebalance markers
+  const rebalanceLogs = result.rebalance_log || [];
+  rebalanceLogs.forEach(r => {
+    if (!r.rebalanced) return;
+    const idx = dates.indexOf(r.date);
+    if (idx === -1) return;
+    const x = toX(idx);
+    ctx.strokeStyle = '#ffd740';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(x, padding.top); ctx.lineTo(x, padding.top + chartH); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Legend
+  const legendY = padding.top + 8;
+  ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#00e5ff'; ctx.fillRect(padding.left + 4, legendY - 6, 12, 3);
+  ctx.fillText('股票部位', padding.left + 20, legendY);
+  ctx.fillStyle = '#3d5269'; ctx.fillRect(padding.left + 85, legendY - 6, 12, 3);
+  ctx.fillText('現金部位', padding.left + 101, legendY);
+  ctx.fillStyle = '#ffd740'; ctx.fillRect(padding.left + 166, legendY - 6, 12, 1);
+  ctx.fillText('再平衡點', padding.left + 182, legendY);
+}
+
+function drawMaSignalChart(ctx, w, h, dates, prices, shortMa, longMa, rebalanceLogs) {
+  // Draws: price candle-like line + short MA + long MA + golden/death cross markers
+  if (!prices || prices.length === 0) return;
+
+  const padding = { top: 28, right: 20, bottom: 40, left: 70 };
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+
+  const allVals = [...prices, ...shortMa.filter(v => v != null), ...longMa.filter(v => v != null)];
+  const minVal = Math.min(...allVals) * 0.99;
+  const maxVal = Math.max(...allVals) * 1.01;
+  const range = maxVal - minVal || 1;
+
+  const n = prices.length;
+  const toX = i => padding.left + (i / (n - 1)) * chartW;
+  const toY = v => padding.top + (1 - (v - minVal) / range) * chartH;
+
+  // Background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+
+  // Background zones: bull (green tint) when short > long, bear (red tint) otherwise
+  let zoneStart = 0;
+  let inBull = shortMa[0] != null && longMa[0] != null ? shortMa[0] > longMa[0] : false;
+  for (let i = 1; i <= n; i++) {
+    const s = shortMa[i] ?? null;
+    const l = longMa[i] ?? null;
+    const nowBull = s != null && l != null ? s > l : inBull;
+    const zoneEnd = i;
+    if (nowBull !== inBull || i === n) {
+      const x1 = toX(zoneStart);
+      const x2 = toX(Math.min(zoneEnd, n - 1));
+      ctx.fillStyle = inBull ? 'rgba(0,230,118,0.04)' : 'rgba(255,23,68,0.04)';
+      ctx.fillRect(x1, padding.top, x2 - x1, chartH);
+      zoneStart = i;
+      inBull = nowBull;
+    }
+  }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(30,45,61,0.8)'; ctx.lineWidth = 1;
+  for (let g = 0; g <= 4; g++) {
+    const y = padding.top + (g / 4) * chartH;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
+    const v = minVal + (range * (4 - g) / 4);
+    ctx.fillStyle = '#3d5269'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'right';
+    ctx.fillText(v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(2), padding.left - 6, y + 4);
+  }
+
+  // X labels
+  ctx.textAlign = 'center'; ctx.fillStyle = '#3d5269';
+  const xStep = Math.max(1, Math.floor(n / 6));
+  for (let i = 0; i < n; i += xStep) {
+    if (dates[i]) ctx.fillText(dates[i].slice(0, 7), toX(i), h - 8);
+  }
+
+  // Price line (thin, subdued)
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    if (prices[i] != null) {
+      i === 0 ? ctx.moveTo(toX(i), toY(prices[i])) : ctx.lineTo(toX(i), toY(prices[i]));
+    }
+  }
+  ctx.strokeStyle = 'rgba(122,153,184,0.4)'; ctx.lineWidth = 1; ctx.stroke();
+
+  // Long MA line
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < n; i++) {
+    if (longMa[i] != null) {
+      if (!started) { ctx.moveTo(toX(i), toY(longMa[i])); started = true; }
+      else ctx.lineTo(toX(i), toY(longMa[i]));
+    }
+  }
+  ctx.strokeStyle = '#ff6d00'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Short MA line
+  ctx.beginPath(); started = false;
+  for (let i = 0; i < n; i++) {
+    if (shortMa[i] != null) {
+      if (!started) { ctx.moveTo(toX(i), toY(shortMa[i])); started = true; }
+      else ctx.lineTo(toX(i), toY(shortMa[i]));
+    }
+  }
+  ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Golden / death cross markers from rebalance log
+  rebalanceLogs.forEach(r => {
+    const idx = dates.indexOf(r.date);
+    if (idx === -1 || prices[idx] == null) return;
+    const x = toX(idx);
+    const isGolden = r.mode === 'bull';
+    const yPrice = toY(prices[idx]);
+
+    // Diamond marker on price line
+    const size = 6;
+    ctx.beginPath();
+    ctx.moveTo(x, yPrice - size);
+    ctx.lineTo(x + size, yPrice);
+    ctx.lineTo(x, yPrice + size);
+    ctx.lineTo(x - size, yPrice);
+    ctx.closePath();
+    ctx.fillStyle = isGolden ? '#00e676' : '#ff1744';
+    ctx.fill();
+
+    // Vertical dashed line
+    ctx.strokeStyle = isGolden ? 'rgba(0,230,118,0.35)' : 'rgba(255,23,68,0.35)';
+    ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(x, padding.top); ctx.lineTo(x, padding.top + chartH); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Legend
+  const ly = padding.top - 14;
+  ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#00e5ff'; ctx.fillRect(padding.left, ly - 4, 12, 2);
+  ctx.fillText('短期MA', padding.left + 16, ly + 1);
+  ctx.fillStyle = '#ff6d00'; ctx.fillRect(padding.left + 68, ly - 4, 12, 2);
+  ctx.fillText('長期MA', padding.left + 84, ly + 1);
+  // Green/red dots for cross labels
+  ctx.fillStyle = '#00e676';
+  ctx.beginPath(); ctx.arc(padding.left + 148, ly - 2, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7a99b8'; ctx.fillText('金叉', padding.left + 156, ly + 1);
+  ctx.fillStyle = '#ff1744';
+  ctx.beginPath(); ctx.arc(padding.left + 194, ly - 2, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7a99b8'; ctx.fillText('死叉', padding.left + 202, ly + 1);
+}
+
+function drawRatioChart(ctx, w, h, dates, ratioHistory, params, rebalanceLogs) {
+  // Shows stock% ratio over time with target line + threshold band + rebalance triggers
+  if (!ratioHistory || ratioHistory.length === 0) return;
+
+  const target = (params.target_ratio || 0.5) * 100;
+  const thresh = (params.threshold || 0.05) * 100;
+  const lo = target - thresh;
+  const hi = target + thresh;
+
+  const padding = { top: 28, right: 20, bottom: 40, left: 50 };
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+
+  // Y range: show ±2× threshold around target, min 0, max 100
+  const yMin = Math.max(0, target - thresh * 4);
+  const yMax = Math.min(100, target + thresh * 4);
+  const yRange = yMax - yMin || 1;
+
+  const n = ratioHistory.length;
+  const toX = i => padding.left + (i / (n - 1)) * chartW;
+  const toY = v => padding.top + (1 - (v - yMin) / yRange) * chartH;
+
+  // Background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+
+  // Threshold band (the safe zone)
+  ctx.fillStyle = 'rgba(0,229,255,0.05)';
+  ctx.fillRect(padding.left, toY(hi), chartW, toY(lo) - toY(hi));
+
+  // Outside-band shading: split into green (below lo = underweight, buy zone) and red (above hi = overweight, sell zone)
+  ctx.fillStyle = 'rgba(0,230,118,0.06)';
+  ctx.fillRect(padding.left, toY(lo), chartW, toY(yMin) - toY(lo));
+  ctx.fillStyle = 'rgba(255,23,68,0.06)';
+  ctx.fillRect(padding.left, toY(yMax), chartW, toY(hi) - toY(yMax));
+
+  // Grid + y-axis labels
+  ctx.strokeStyle = 'rgba(30,45,61,0.8)'; ctx.lineWidth = 1;
+  const yTicks = [yMin, lo, target, hi, yMax];
+  yTicks.forEach(v => {
+    const y = toY(v);
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
+    ctx.fillStyle = v === target ? 'var(--accent, #00e5ff)' : v === lo || v === hi ? '#ffd740' : '#3d5269';
+    ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'right';
+    ctx.fillText(`${v.toFixed(0)}%`, padding.left - 4, y + 4);
+  });
+
+  // X labels
+  ctx.fillStyle = '#3d5269'; ctx.textAlign = 'center';
+  const xStep = Math.max(1, Math.floor(n / 6));
+  for (let i = 0; i < n; i += xStep) {
+    if (dates[i]) ctx.fillText(dates[i].slice(0, 7), toX(i), h - 8);
+  }
+
+  // Target line (dashed cyan)
+  ctx.strokeStyle = 'rgba(0,229,255,0.5)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(padding.left, toY(target)); ctx.lineTo(padding.left + chartW, toY(target)); ctx.stroke();
+
+  // Threshold band borders (dashed yellow)
+  ctx.strokeStyle = 'rgba(255,215,64,0.4)'; ctx.lineWidth = 1;
+  ctx.setLineDash([3, 4]);
+  [lo, hi].forEach(v => {
+    ctx.beginPath(); ctx.moveTo(padding.left, toY(v)); ctx.lineTo(padding.left + chartW, toY(v)); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // Ratio line — coloured: cyan inside band, green below lo (underweight), red above hi (overweight)
+  for (let i = 1; i < n; i++) {
+    const r0 = ratioHistory[i - 1], r1 = ratioHistory[i];
+    const x0 = toX(i - 1), x1 = toX(i);
+    const y0 = toY(r0), y1 = toY(r1);
+    const mid = (r0 + r1) / 2;
+    let col;
+    if (mid > hi)       col = '#ff4444';
+    else if (mid < lo)  col = '#00e676';
+    else                col = '#00e5ff';
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // Rebalance trigger dots
+  rebalanceLogs.forEach(r => {
+    const idx = dates.indexOf(r.date);
+    if (idx === -1) return;
+    const x = toX(idx);
+    const y = toY(r.before_ratio);
+    const isBuy = r.deviation < 0;
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = isBuy ? '#00e676' : '#ff1744';
+    ctx.fill();
+    // Small vertical tick at rebalance point
+    ctx.strokeStyle = isBuy ? 'rgba(0,230,118,0.3)' : 'rgba(255,23,68,0.3)';
+    ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(x, padding.top); ctx.lineTo(x, padding.top + chartH); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Legend
+  const ly = padding.top - 14;
+  ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#00e5ff'; ctx.fillText('目標比例', padding.left, ly + 1);
+  ctx.fillStyle = '#ffd740'; ctx.fillText(`閾值 ±${thresh.toFixed(0)}%`, padding.left + 64, ly + 1);
+  ctx.fillStyle = '#00e676';
+  ctx.beginPath(); ctx.arc(padding.left + 142, ly - 2, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7a99b8'; ctx.fillText('補買', padding.left + 150, ly + 1);
+  ctx.fillStyle = '#ff1744';
+  ctx.beginPath(); ctx.arc(padding.left + 182, ly - 2, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7a99b8'; ctx.fillText('賣出', padding.left + 190, ly + 1);
+}
+
+// Init UI
+updateUI();
+</script>
+</body>
+</html>
