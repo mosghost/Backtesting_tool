@@ -13,7 +13,7 @@ from datetime import datetime
 
 # 連線設定（可依需要修改）
 IB_HOST = '127.0.0.1'
-IB_PORT = 4001        # IB Gateway 模擬帳戶預設埠
+IB_PORT = 4001        # IB Gateway 真實帳戶，建議開Read-only
                       # TWS 模擬 7497 / TWS 真實 7496 / Gateway 真實 4001
 IB_CLIENT_ID = 17     # 任意不重複的整數即可
 
